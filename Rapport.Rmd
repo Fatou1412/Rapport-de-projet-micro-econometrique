@@ -1,0 +1,524 @@
+---
+output:
+   pdf_document:
+    latex_engine: xelatex
+    toc_depth: 3
+    number_sections: true
+    fig_caption: true
+    keep_tex: false
+geometry: "top=1.5cm, bottom=1.5cm, left=2cm, right=2cm"
+header-includes:
+  - \usepackage{placeins}
+  - \usepackage{pdfpages}
+  - \usepackage{titling}
+  - \usepackage{tikz}
+  - \usepackage{float}
+lang: fr-FR
+---
+
+
+\begin{titlepage}
+    % 1. Image de fond
+    \begin{tikzpicture}[remember picture,overlay]
+        \node[inner sep=0pt] at (current page.center) {
+            \includegraphics[width=\paperwidth,height=\paperheight]{Econometrie.jpg}
+        };
+    \end{tikzpicture}
+
+    \centering
+    \vspace*{2cm}
+
+    % 2. Le rectangle central 
+    \begin{tikzpicture}
+        \node[draw = none, line width=1pt, fill=white, fill opacity=0.2, text opacity=1, inner sep=1cm] {
+            \begin{minipage}{0.8\textwidth}
+            \color{white} %
+                \centering
+                \vspace{0.5cm}
+                
+                % Logo
+                \includegraphics[width=3.5cm]{universite-tours.jpg} 
+                
+                \vspace{0.8cm}
+                
+                % Titre et sous-titre
+                {\Huge \textbf{Capital humain, croissance et emploi : une analyse économétrique du chômage régional en France (2013-2020)} \par}
+                \vspace{0.4cm}
+                {\large \textit{Analyse de données de panel (2013-2020)} \par}
+                
+                \vspace{1.2cm}
+                
+                % Auteurs et Professeur
+                \textbf{Présenté par :} \\
+                {\Large Ndèye Fatou DIOP \par}
+                
+                \vspace{0.8cm}
+                
+                \textbf{Sous la direction de :} \\
+                {\Large Pr. Rozen Hotte \par}
+                
+                \vspace{1.5cm} % Espace avant les infos universitaires
+                
+                % --- Université ---
+                \rule{4cm}{0.4pt} \\ % Petite ligne de séparation optionnelle
+                \vspace{0.5cm}
+                {\Large \textbf{Université de Tours} \par}
+                {\large Année universitaire 2025-2026 \par}
+                % ---------------------------
+                
+                \vspace{0.5cm}
+            \end{minipage}
+        };
+    \end{tikzpicture}
+
+\end{titlepage}
+
+\newpage
+\tableofcontents 
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE )
+```
+
+```{r library, include=FALSE}
+library(eurostat)
+library(dplyr)
+library(tidyr)
+library(plm)
+library(plotly)
+library(ggplot2)
+library(giscoR)
+library(sf)
+library(patchwork)
+library(stargazer)
+library(kableExtra)
+library(ggrepel)
+library(packrat)
+library(rsconnect)
+```
+
+# **Introduction**
+
+Le dynamisme des marchés du travail régionaux est aujourd'hui étroitement lié à la qualité du stock de compétences disponibles localement. Dans un contexte de mutations économiques, le capital humain est souvent présenté comme le principal moteur de la résilience des territoires. Toutefois, cette offre de compétences ne peut être analysée sans tenir compte de la structure économique et de la richesse intrinsèque des régions.
+
+Ce projet propose d'analyser les déterminants du chômage au sein des régions françaises en croisant deux dimensions fondamentales : le niveau d'éducation et la performance économique, mesurée par le PIB par habitant. En utilisant des données de panel couvrant la période 2013-20220 nous cherchons à isoler l'effet propre de l'enseignement supérieur sur l'emploi, tout en contrôlant l'impact de la productivité locale. Cette approche permet de vérifier si le diplôme protège du chômage indépendamment du niveau de richesse de la région.
+
+# **Présentation de la question de recherche**
+
+À l'heure où les économies européennes opèrent une transition profonde vers l'économie de la connaissance et les secteurs à haute intensité technologique, la question du dynamisme des territoires devient centrale. Dans ce paysage en mutation, le capital humain ne représente plus seulement une variable d'ajustement, mais s'affirme comme le moteur principal de la résilience régionale et de la cohésion sociale.
+
+L'investissement dans l'éducation est ainsi perçu comme un bouclier contre la précarité : la capacité d'une région à intégrer durablement sa population active semble désormais intrinsèquement liée à son stock de qualifications. Cependant, cette promesse d'employabilité par le diplôme ne peut être isolée de la structure économique du territoire. Le niveau de richesse et de productivité, mesuré par le PIB par habitant, constitue le socle sur lequel s'exprime le potentiel du capital humain. Une région hautement diplômée peut-elle surmonter un déficit de productivité ? Ou, à l'inverse, la richesse d'un territoire suffit-elle à masquer des faiblesses en termes de formation ?
+
+C’est au cœur de cette interrogation que se place notre étude. Nous cherchons à déterminer si l'effort de formation d'un territoire se traduit mécaniquement par une baisse du chômage, ou si cet effet est conditionné par la puissance économique régionale.
+
+Notre analyse se structure autour de la problématique suivante :
+
+« **Analyse des déterminants du chômage régional en France : une étude d'impact du stock de capital humain et de la productivité locale (2013-2020).** »
+
+Répondre à cette question nécessite de dépasser les simples corrélations de court terme. En mobilisant des données de panel (2013-2020), ce travail se propose d'isoler l'effet propre de l'éducation en neutralisant les spécificités structurelles de chaque région (effets fixes) et en contrôlant les variations du PIB par habitant. Cette approche offre ainsi une lecture plus fine de l'impact réel des politiques éducatives régionales face aux impératifs de croissance économique.
+
+# **Présentation des données**
+
+La solidité d'une étude de panel repose sur la qualité de son architecture de données. Cette section présente de manière exhaustive les sources, la construction des variables et le périmètre d'étude retenu pour tester l'impact du capital humain et de la richesse du capital humain sur le chômage régional.
+
+## Nature et Structure de l'Échantillon
+
+L'étude mobilise un panel de données régionales françaises dont la structure permet de capter à la fois les dynamiques temporelles et les disparités spatiales.  
+- **Horizon temporel** : La période d'analyse s'étend de 2013 à 2020, incluant ainsi des phases contrastées du cycle économique français.  
+- **Unités spatiales** : Nous travaillons sur les régions françaises au niveau NUTS 2 (Nomenclature des Unités Territoriales Statistiques).  
+- **Volume de données** : L'échantillon final comprend 204 observations. Ce volume élevé s'explique par la conservation des 22 régions métropolitaines historiques auxquelles s'ajoutent les régions ultrapériphériques dont les données étaient disponibles.  
+- **Type de panel** : Le panel est dit "légèrement non cylindré". Bien que la majorité des unités soient suivies sur 8 ans, la présence de 204 observations (au lieu de 208 théoriques) indique quelques valeurs manquantes isolées qui seront traitées par les estimateurs de panel classiques (Within/Random Effects).
+
+## Opérationnalisation des Variables et Sources Eurostat
+
+Toutes les données ont été extraites via le portail de l'office statistique de l'Union européenne, Eurostat, garantissant une standardisation des définitions.
+
+### La variable dépendante : Le Taux de Chômage
+
+- **Source Eurostat** : Table [tgs00010]   
+- **Définition** : Il s'agit du taux de chômage au sens du Bureau International du Travail (BIT), calculé pour la population active âgée de 15 à 74 ans. L'utilisation de cette norme internationale permet d'éliminer les biais liés aux règles administratives nationales d'inscription au chômage. 
+
+### Variable explicative : Le Niveau d'Éducation Supérieur
+
+- **Source Eurostat** : Table [edat_lfse_04] 
+- **Définition** : Cette variable mesure la part de la population active (25-64 ans) possédant un diplôme de l'enseignement supérieur. Elle regroupe les niveaux 5 à 8 de la nomenclature ISCED/CITE (allant du diplôme de niveau Bac+2 jusqu'au Doctorat).   
+- **Rôle théorique** : Elle sert de "proxy" (indicateur indirect) pour mesurer le stock de capital humain disponible dans chaque économie régionale.
+
+### Variable de contrôle : Le PIB par Habitant 
+
+- **Source Eurostat** : Table [nama_10r_2gdp] 
+- **Définition** : Cette variable représente la valeur totale de la production de biens et services d'une région, divisée par son nombre d'habitants. Pour cette étude, nous utilisons le PIB exprimé en **Standard de Pouvoir d'Achat (SPA) par habitant**. Cette unité statistique permet de neutraliser les différences de niveaux de prix entre les pays et de comparer réellement le volume de richesse produit par chaque territoire.  
+- **Rôle théorique **: Elle sert de "proxy" pour mesurer la productivité locale et le niveau de développement économique. En économétrie, c'est une variable de contrôle fondamentale : elle permet de s'assurer que la baisse du chômage observée est bien liée au capital humain et non simplement à la richesse globale de la région .
+
+## Cohérence et Fiabilité
+
+L'utilisation exclusive d'Eurostat garantit une homogénéité totale de notre panel. En liant le chômage, l'éducation (Enquête Forces de Travail) et le PIB (Comptes régionaux) au sein d'une source unique, nous neutralisons les biais méthodologiques. Cette cohérence est indispensable pour assurer que les coefficients de notre modèle reflètent de réelles dynamiques économiques et non des divergences statistiques entre sources.
+
+```{r, include=FALSE}
+# Fonction modifiée pour inclure les noms des régions
+extraire_donnees <- function(code_table) {
+  df <- get_eurostat(code_table, time_format = "num", type = "code")
+  names(df)[names(df) %in% c("time", "TIME_PERIOD")] <- "temp_annee"
+  
+  df %>%
+    mutate(
+      annee = as.numeric(as.character(temp_annee)),
+      nom_region = label_eurostat(geo, dic = "geo", lang = "fr", fix_duplicated = TRUE)
+    ) %>%
+    filter(
+      grepl("^FR", geo),              
+      nchar(as.character(geo)) == 4,  
+      annee >= 2013 & annee <= 2020   
+    )
+}
+```
+
+
+
+```{r, include=FALSE}
+# Extraction du Taux de Chômage (Variable dépendante Y)
+# Code Eurostat : tgs00010
+data_chomage <- extraire_donnees("tgs00010") %>%
+  filter(if_any(everything(), ~.x == "PC"), 
+         if_any(everything(), ~.x == "Y15-74"),
+         if_any(everything(), ~.x == "T")) %>%
+  select(region = geo, nom_region, annee, chomage = values) %>%
+  filter(!is.na(chomage)) 
+
+# Nettoyage de la base CHÔMAGE 
+data_chomage_clean <- data_chomage %>%
+  filter(
+    grepl("^FR", region),           
+    nchar(as.character(region)) == 4 
+  ) %>%
+  distinct(region, annee, .keep_all = TRUE)
+```
+
+
+```{r}
+# --- 2. Extraction du PIB par habitant ---
+# Code Eurostat : nama_10r_2gdp
+data_pib <- extraire_donnees("nama_10r_2gdp") %>%
+  filter(if_any(everything(), ~.x == "PPS_EU27_2020_HAB")) %>% 
+  select(region = geo, nom_region, annee, pib_hab = values) %>%
+  filter(!is.na(pib_hab))
+
+#  Nettoyage de la base PIB 
+data_pib_clean <- data_pib %>%
+  filter(
+    grepl("^FR", region),           
+    nchar(as.character(region)) == 4 
+  ) %>%
+  distinct(region, annee, .keep_all = TRUE)
+data_pib_clean <- data_pib_clean %>%
+  mutate(
+    region = as.character(region),
+    annee  = as.numeric(as.character(annee))
+  )
+# On utilise dplyr::select pour éviter tout conflit de package
+data_pib_final <- data_pib_clean %>%
+  dplyr::select(region, annee, pib_hab) %>%
+  distinct(region, annee, .keep_all = TRUE)
+```
+
+
+```{r, include=FALSE}
+# Extraction du Niveau d'Éducation (Variable explicative X)
+# Code Eurostat : edat_lfse_04 (Diplômés du supérieur)
+data_educ <- extraire_donnees("edat_lfse_04") %>%
+  filter(if_any(everything(), ~.x == "ED5-8"), 
+         if_any(everything(), ~.x == "Y25-64"),
+         if_any(everything(), ~.x == "T")) %>%
+  select(region = geo, nom_region, annee, etudes_sup = values) %>%
+  filter(!is.na(etudes_sup)) # On enlève les NA de l'éducation
+
+data_educ_clean <- data_educ %>%
+  filter(
+    grepl("^FR", region), 
+    nchar(as.character(region)) == 4
+  ) %>%
+  distinct(region, annee, .keep_all = TRUE)
+```
+
+
+```{r}
+# Jointure intermédiaire Chômage + PIB
+data_projet <- data_chomage_clean %>%
+  mutate(
+    region = as.character(region),
+    annee  = as.numeric(as.character(annee))
+  ) %>%
+  inner_join(data_pib_final, by = c("region", "annee"))
+
+# Jointure finale avec l'éducation
+base_econometrie <- data_projet %>%
+  inner_join(data_educ_clean, by = c("region", "annee"))%>%
+  dplyr::select(-ends_with(".y")) %>%
+  rename_with(~gsub(".x", "", .x), ends_with(".x"))
+
+```
+
+# Statistiques descriptives
+
+```{r}
+stats_desc <- base_econometrie %>%
+  reframe(
+    Variable = c("Taux de Chômage (%)", "Diplômés Supérieur (%)", "PIB par Habitant (SPA)"),
+    Moyenne = c(mean(chomage, na.rm = TRUE), mean(etudes_sup, na.rm = TRUE), mean(pib_hab, na.rm = TRUE)),
+    Ecart_Type = c(sd(chomage, na.rm = TRUE), sd(etudes_sup, na.rm = TRUE), sd(pib_hab, na.rm = TRUE)),
+    Minimum = c(min(chomage, na.rm = TRUE), min(etudes_sup, na.rm = TRUE), min(pib_hab, na.rm = TRUE)),
+    Maximum = c(max(chomage, na.rm = TRUE), max(etudes_sup, na.rm = TRUE), max(pib_hab, na.rm = TRUE))
+  )
+
+stats_desc %>%
+  kbl(caption = "Tableau 1 : Statistiques descriptives du panel (2013-2020)",
+      booktabs = TRUE, 
+      digits = 2, 
+      align = "lcccc") %>%
+  kable_styling(latex_options = c("striped", "hold_position"), full_width = F)
+```
+
+Le tableau de statistiques descriptives (Tableau 1) synthétise les données de notre panel de 204 observations couvrant la période 2013-2020. Cette analyse préliminaire est fondamentale pour comprendre la structure du marché du travail régional français et la distribution du capital humain.
+
+## Le Taux de Chômage : une réalité territoriale hétérogène
+
+- **Une moyenne élevée et contrastée** : Le taux de chômage moyen s'établit à **17,59 %**. Ce niveau moyen important s'explique par la nature de l'échantillon qui intègre les régions métropolitaines ainsi que les régions ultrapériphériques, ces dernières affichant historiquement des taux de chômage structurels très élevés.  
+- **Une dispersion alarmante** : L'écart-type de **5,98 %** témoigne d'une forte volatilité inter-régionale. L'écart entre le *minimum* (**5,0 %**) et le *maximum* (**37,2 %**) est particulièrement frappant : le taux de chômage est sept fois plus élevé dans la région la plus en difficulté que dans la région la plus dynamique.  
+- **Implication pour le modèle** : Cette forte variance indique que le chômage n'est pas un phénomène "national" uniforme mais qu'il dépend de spécificités locales (structure industrielle, situation géographique), ce qui justifie l'utilisation d'une estimation en données de panel pour isoler ces effets régionaux.
+
+## Le Capital Humain : une concentration inégale des compétences
+
+- **Niveau d'éducation moyen **: En moyenne, **30,66 %** de la population active (25-74 ans) détient un diplôme de l'enseignement supérieur (niveaux ISCED 5 à 8).  
+- **Disparités de qualification** : La dispersion est également marquée pour cette variable (écart-type de **6,58 %**). On observe des territoires où seulement **18,4 %** des actifs sont diplômés du supérieur, contre **54,3 %** pour les régions les plus qualifiées (probablement l'Île-de-France).  
+- **Analyse économique** : Ce "gap" de capital humain de près de 36 points de pourcentage constitue le levier principal de notre étude. Nous pourrons ainsi tester si cette concentration de compétences agit comme un moteur d'employabilité ou si d'autres facteurs structurels captés par les effets fixes dominent la relation.
+
+## Le PIB par habitant : un indicateur de fractures économiques profondes  
+
+- **Un niveau de richesse moyen significatif **: Le PIB par habitant moyen du panel s'élève à **25 385,78 SPA**. Ce chiffre, exprimé en **Standard de Pouvoir d'Achat**, reflète le niveau de développement économique global des régions françaises sur la période 2013-2020, servant de socle à la demande de travail locale.  
+- **Des disparités de richesse extrêmes** : L'écart-type élevé de **6 266,26 SPA** révèle une hétérogénéité marquée entre les territoires. Le contraste entre la région la moins productive (13 500 SPA) et la plus riche (56 900 SPA) est saisissant : le niveau de richesse produite par habitant est plus de quatre fois supérieur dans le pôle le plus dynamique, soulignant un profond déséquilibre de productivité régionale.  
+- **Implication pour l'analyse** : Ce fossé économique justifie l'introduction du PIB comme variable de contrôle fondamentale. Il permet de vérifier si l'impact du capital humain sur le chômage est intrinsèque aux compétences ou s'il dépend de la puissance économique de la région. La forte dispersion des données confirme l'importance de neutraliser les effets fixes régionaux pour isoler l'influence réelle de l'éducation face aux disparités de richesse structurelles.
+
+
+## Visualisation initiale : Nuage de points
+
+Pour compléter l'analyse descriptive, nous présentons une série de graphiques en nuages de points. Cette visualisation permet d'observer directement si les régions dotées d'un stock de capital humain important et d'un PIB par habitant élevé affichent, conformément à nos hypothèses, des taux de chômage plus faibles. L'examen simultané de ces deux relations constitue une étape exploratoire essentielle : elle permet de valider visuellement la corrélation entre productivité régionale, niveau de qualification et emploi, avant d'isoler l'effet propre de chaque variable par la modélisation économétrique.
+
+```{r, outwidth='80%', fig.align='center'}
+# Graphique Chômage vs Capital Humain
+p1 <- ggplot(base_econometrie, aes(x = etudes_sup, y = chomage)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred", se = FALSE) +
+  labs(title = "Éducation et Chômage",
+       x = "Diplômés du Supérieur (%)",
+       y = "Taux de Chômage (%)") +
+  theme_minimal()
+
+# Graphique Chômage vs PIB par habitant
+p2 <- ggplot(base_econometrie, aes(x = pib_hab, y = chomage)) +
+  geom_point(alpha = 0.6, color = "darkgreen") +
+  geom_smooth(method = "lm", color = "darkred", se = FALSE) +
+  labs(title = "Richesse (PIB) et Chômage",
+       x = "PIB par habitant (SPA)",
+       y = "Taux de Chômage (%)") +
+  theme_minimal()
+
+# Affichage des deux graphiques côte à côte
+p1 + p2
+```
+
+Les nuages de points permettent de confronter le taux de chômage à nos deux variables explicatives et confirment les tendances observées dans les statistiques descriptives:  
+- **Une double corrélation négative apparente** : Les deux droites de régression rouges présentent une pente descendante. Cela suggère visuellement qu'en moyenne, plus la part des diplômés du supérieur augmente ou plus le PIB par habitant est élevé, plus le taux de chômage tend à diminuer.  
+- **L'effet "bouclier" du Capital Humain** : Le premier graphique montre une relation inverse entre éducation et chômage. On observe une forte densité de points autour de **30 %** de diplômés pour **17 %** de chômage, validant l'idée que le diplôme agit comme un levier de réduction de la précarité.  
+- **La richesse comme socle de l'emploi** : Le second graphique illustre le rôle du PIB par habitant. La concentration des points le long de la droite de régression montre que la richesse produite est un déterminant majeur de la santé du marché du travail.
+
+Enfin, pour parfaire cette exploration, il convient d'examiner la relation directe entre nos deux variables explicatives. Ce troisième graphique, mettant en regard le PIB par habitant et le niveau d'études supérieures, permet de vérifier la synergie entre richesse économique et qualification du capital humain, confirmant ainsi que les territoires les plus productifs sont également ceux qui concentrent les plus hauts niveaux de compétences.
+
+```{r, outwidth='60%', fig.align='center'}
+#  Graphique PIB par habitant vs Capital Humain
+ggplot(base_econometrie, aes(x = pib_hab, y = etudes_sup)) +
+  geom_point(aes(color = chomage), alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkorange", se = FALSE) +
+  geom_text_repel(data = subset(base_econometrie, pib_hab > 45000 | etudes_sup > 50),
+                  aes(label = nom_region), size = 3) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(title = "Lien entre Richesse et Qualification",
+       x = "PIB par habitant (SPA)",
+       y = "Diplômés du Supérieur (%)",
+       color = "Taux de chômage") +
+  theme_minimal()
+```
+Ce graphique met en relation le PIB par habitant et la part des diplômés du supérieur. Cette visualisation est importante pour comprendre la structure économique de nos régions :  
+- **Une corrélation positive et robuste** : La pente ascendante de la droite de régression indique que les variables de richesse et d'éducation évoluent de concert. En d'autres termes, les régions les plus productives sont également celles qui attirent et forment la main-d'œuvre la plus qualifiée.  
+- **La mise en évidence d'un "cercle vertueux" **: Les points situés en haut à droite du graphique (notamment l'Île-de-France) illustrent des territoires où la forte valeur ajoutée produite (PIB) finance et bénéficie d'un stock de capital humain élevé. À l'inverse, les points en bas à gauche signalent des régions qui font face à un double défi : une économie moins dynamique et un niveau de qualification plus faible.  
+- **Validation du cadre économétrique** : Bien que ces deux variables soient corrélées, la dispersion observée autour de la droite montre qu'elles ne sont pas parfaitement redondantes. Cela justifie de les inclure simultanément dans notre modèle final : le PIB capte la puissance du marché local (la demande de travail), tandis que le capital humain capte la qualité de l'offre de travail.
+
+
+# **Spécifications économétriques et Résultats**
+
+Nous abordons à présent la phase centrale de notre étude : l’arbitrage entre les différentes méthodes d’estimation sur données de panel. L’enjeu de cette section est de déterminer quelle spécification capte avec la plus grande précision l’impact du capital humain sur le chômage, tout en isolant l’effet de la richesse régionale mesurée par le PIB par habitant. Afin de garantir la robustesse de nos résultats et de tenir compte de la structure de nos 204 observations, nous soumettons notre modèle à trois tests de spécification classiques. Cette démarche nous permettra de neutraliser les biais potentiels et d’identifier l’estimateur le plus performant pour isoler l'influence réelle de nos variables explicatives.
+
+## Le Modèle Poolé (MCO Ordinaires)
+
+Ce modèle ignore la dimension de panel (le fait que ce soient les mêmes régions suivies dans le temps). Il considère que toutes les observations sont indépendantes, comme si chaque ligne du tableau était une région différente sans lien historique.
+
+-  **Équation :**
+$$Chomage_{it} = \beta_0 + \beta_1 CapitalHumain_{it} +\beta_2 PIB_{it}+ \epsilon_{it}$$
+
+- **Hypothèse** : On suppose qu'il n'y a pas de caractéristiques propres aux régions. Le terme d'erreur **$\epsilon_{it}$** est supposé indépendant des variables explicatives.  
+- **Risque **: C'est le modèle le moins robuste ici, car il ne capte pas les spécificités géographiques ou historiques (effets fixes) que nous avons identifiées dans nos graphiques.
+
+## Le Modèle à Effets Fixes (Within)
+
+Ce modèle se concentre sur les évolutions internes à chaque région. Il permet de neutraliser tous les facteurs invariants dans le temps qui sont propres à chaque territoire. 
+
+-  **Équation** : 
+$$Chomage_{it} = \beta_1 CapitalHumain_{it} +\beta_2 PIB_{it} + \alpha_i + \epsilon_{it}$$
+
+- **$\alpha_i$ (L'effet fixe)** : Il représente l'identité unique de la région $i$ (ex: l'insularité de la Corse ou de la Réunion, la centralité de l'Île-de-France).  
+- **Logique **: On cherche à savoir si, lorsqu'une région augmente son stock de diplômés ou son PIB, son taux de chômage baisse, indépendamment de son niveau de base.
+
+## Le Modèle à Effets Aléatoires (Random Effects)
+Ce modèle propose une approche intermédiaire. Il ne considère pas les spécificités régionales ($\alpha_i$) comme des constantes à éliminer, mais comme une part de l'aléa.
+
+-  **Équation :**
+$$Chomage_{it} = \beta_0 +  \beta_1 CapitalHumain_{it} +\beta_2 PIB_{it}+ (u_i + \epsilon_{it})$$
+
+- **$u_i$** : C'est l'erreur spécifique à la région, supposée aléatoire.  
+- **Logique** : Ce modèle est plus efficace si l'on pense que les différences entre régions ne sont pas liées (corrélées) aux variables explicatives choisies.
+
+Une fois ces trois spécifications établies, la question centrale de notre analyse sera de déterminer laquelle de ces équations fournit les estimateurs les plus fiables. C'est l'objet des tests statistiques que nous allons maintenant présenter, notamment pour vérifier si les caractéristiques propres à chaque région ($\alpha_i$) doivent être traitées comme fixes ou aléatoires.
+
+## Résultats des Estimations
+
+```{r, results='asis', fig.pos = "H", out.width= "70%"}
+# Installation des packages si nécessaire
+# install.packages(c("plm", "stargazer"))
+
+library(plm)
+library(stargazer)
+
+# 1. Estimation du modèle MCO (Pooled)
+model_ols <- plm(chomage ~ etudes_sup + pib_hab, 
+                 data = base_econometrie, 
+                 model = "pooling")
+
+# 2. Estimation du modèle à Effets Fixes (Within)
+model_fe <- plm(chomage ~ etudes_sup + pib_hab, 
+                data = base_econometrie, 
+                index = c("nom_region", "annee"), 
+                model = "within")
+
+# 3. Estimation du modèle à Effets Aléatoires (Random)
+model_re <- plm(chomage ~ etudes_sup + pib_hab, 
+                data = base_econometrie, 
+                index = c("nom_region", "annee"), 
+                model = "random")
+
+# 5. Génération du tableau LaTeX
+stargazer(model_ols, model_re, model_fe, 
+          type = "latex",
+          title = "Résultats des estimations : Impact du Capital Humain et du PIB sur le Chômage",
+          column.labels = c("MCO", "E. Aléatoires", "E. Fixes"),
+          covariate.labels = c("Diplômés Supérieur", "PIB par hab."),
+          omit.stat = c("f", "ser"), # Pour alléger le tableau
+          digits = 3,
+          header = FALSE,
+          label = "tab_results",
+          table.placement = "H")
+
+```
+
+
+Le Tableau 3 présente les résultats des trois modèles estimés sur notre panel régional (2013-2020). Voici une analyse détaillée des coefficients obtenus.
+
+###  Analyse du Capital Humain (Diplômés du Supérieur)  
+- **Significativité et Sens **: Dans le modèle MCO (1), le coefficient est de **-0,428 ** et hautement significatif (trois étoiles, $p < 0,01$)222. Cela confirme visuellement ce que montraient nos graphiques : une hausse du niveau d'éducation est associée à une baisse du chômage.  
+- **L'instabilité du coefficient** : On remarque que ce coefficient devient non significatif dans les modèles à Effets Aléatoires (2) et Effets Fixes (3).  
+- **Interprétation **: Cela suggère que l'effet "éducation" observé dans le premier modèle captait en réalité beaucoup de caractéristiques structurelles des régions (l'effet $\alpha_i$). Une fois que l'on neutralise l'identité propre de chaque région (modèle 3), l'impact marginal d'une variation annuelle du diplôme est plus difficile à isoler sur une période courte (2013-2020).
+
+### Analyse de la variable de contrôle (PIB par habitant)  
+
+- **Un impact robuste et constant** : Contrairement à l'éducation, le PIB par habitant est significatif au seuil de 1% dans les modèles (2) et (3) avec un coefficient de **-0,001**.  
+- **Interprétation économique** : Bien que le chiffre paraisse petit, il est crucial. Il signifie qu'à structure régionale constante (Effets Fixes), une augmentation de la richesse produite (le dynamisme économique) réduit mécaniquement et systématiquement le taux de chômage.
+
+### Qualité globale du modèle ($R^2$):  
+- Le $R^2$ ajusté s'effondre dans le modèle à Effets Fixes (**0,010**) par rapport au modèle MCO (**0,263**).  
+- **Explication** : C'est un phénomène classique en données de panel. Le modèle à Effets Fixes "consomme" énormément de variance pour expliquer les différences entre les régions. Ce qu'il reste à expliquer (la variance intra-régionale au fil du temps) est beaucoup plus faible, d'où un $R^2$ plus bas, mais une estimation beaucoup plus rigoureuse et non biaisée.
+
+
+# **Choix du modèle et justification** 
+
+L'estimation sur données de panel offre plusieurs options de modélisation. Le choix entre le modèle MCO, les Effets Aléatoires et les Effets Fixes n'est pas arbitraire : il dépend de la nature de l'hétérogénéité entre nos 204 observations régionales.
+
+## Comparaison des coefficients : MCO vs Panel
+
+En observant le Tableau 2, nous constatons que le passage d'une régression simple (MCO) à une structure de panel modifie la valeur des coefficients : 
+- Le coefficient du Capital Humain chute et perd sa significativité dans les modèles (2) et (3).  
+-Le PIB par habitant reste, quant à lui, très significatif quel que soit le modèle, avec un impact négatif sur le chômage.
+
+Cette instabilité des coefficients indique que le modèle MCO (colonne 1) est probablement biaisé car il ignore les caractéristiques propres à chaque région qui ne changent pas dans le temps (comme la structure géographique ou l'héritage industriel).
+
+
+## Effets Fixes ou Effets Aléatoires ?
+
+La question centrale est maintenant de savoir comment traiter ces spécificités régionales ($\alpha_i$) :  
+- **Modèle à Effets Aléatoires** : On suppose que ces spécificités sont dues au hasard et ne sont pas liées à notre niveau de diplôme ou à notre PIB.  
+- **Modèle à Effets Fixes **: On considère que chaque région a une "identité" propre qui est corrélée avec nos variables explicatives.Si l'on choisit le mauvais modèle, nos résultats seront incohérents. Pour trancher de manière scientifique entre ces deux approches, nous allons maintenant réaliser le test de spécification de Hausman.
+
+## Test de Hausman
+
+Le test de Hausman permet de déterminer si les effets spécifiques aux régions ($\alpha_i$) sont corrélés avec les variables explicatives (Capital Humain et PIB).  
+Les hypothèses sont présentées comme suit :  
+- $H0$ : Les effets spécifiques ($\alpha_i$) ne sont pas corrélés avec les variables explicatives. (On peut utiliser les Effets Aléatoires)  
+- $H1$ : Les effets spécifiques ($\alpha_i$) sont corrélés avec les variables explicatives. (On doit utiliser les Effets Fixes)
+
+**Règle de décision **:  
+Si la p−value est inférieure à 0,05 : on rejette $H0$ et on choisit les Effets Fixes.  
+Si la p−value est supérieure à 0,05 : on garde les Effets Aléatoires.
+
+
+```{r, results='asis', echo=FALSE}
+library(plm)
+library(xtable)
+
+# 1. Réalisation du test de Hausman
+# (Assurez-vous que model_fe et model_re ont été estimés avant)
+test_h <- phtest(model_fe, model_re)
+
+# 2. Création d'un data.frame propre pour le tableau
+df_hausman <- data.frame(
+  Indicateur = c("Statistique du Chi-deux", "Degrés de liberté", "P-value"),
+  Valeur = c(
+    round(as.numeric(test_h$statistic), 4),
+    as.numeric(test_h$parameter),
+    format.pval(test_h$p.value, digits = 4)
+  )
+)
+
+# 3. Génération du tableau LaTeX centré
+print(xtable(df_hausman, 
+             caption = "Résultat du test de spécification de Hausman",
+             align = "llc"), # l=left, l=left, c=center
+      include.rownames = FALSE,
+      table.placement = "H",
+      caption.placement = "top",
+      comment = FALSE,
+      hline.after = c(-1, 0, nrow(df_hausman)))
+```
+
+La règle de décision stipule que si la p-value est inférieure au seuil critique de 0,05, nous devons rejeter l'hypothèse nulle ($H_0$).
+Dans notre cas, la p-value de **0,009** est largement inférieure à 0,05. 
+Par conséquent :  
+- **Nous rejetons $H_0$** : l'hypothèse selon laquelle les effets spécifiques régionaux ne sont pas corrélés aux variables explicatives est invalidée.  
+- **Nous validons $H_1$** : il existe une corrélation significative entre les spécificités des régions et nos variables (Capital Humain et PIB).
+
+Compte tenu du résultat du test de Hausman, **le modèle à Effets Fixes (Within) est statistiquement validé** comme étant le seul estimateur cohérent et non biaisé pour votre étude.
+
+# **Conclusion**
+
+Cette étude a permis d'analyser en profondeur les mécanismes liant la formation, la richesse économique et la stabilité du marché du travail au sein des régions françaises sur la période 2013-2020. En mobilisant une approche par données de panel, nous avons pu confronter la théorie classique du capital humain à la réalité des disparités territoriales. L'un des enseignements majeurs de ce travail réside dans la validation statistique du modèle à effets fixes, confirmée par le test de Hausman avec une p-value de **0,009**. Ce choix méthodologique s'est avéré crucial puisqu'il a permis de neutraliser les caractéristiques structurelles invariantes des régions, telles que leur héritage industriel ou leur situation géographique, garantissant ainsi des estimations non biaisées.
+
+Les résultats de nos estimations révèlent que, si le capital humain est souvent perçu comme le principal moteur de l'employabilité, son impact marginal est complexe à isoler une fois les spécificités régionales prises en compte. À l'inverse, le PIB par habitant s'est imposé comme le déterminant le plus robuste et le plus significatif du taux de chômage. Cette observation suggère que le dynamisme économique local et la richesse produite sur un territoire exercent une influence plus immédiate et systématique sur l'emploi que les variations de court terme du stock de diplômés. En définitive, cette recherche démontre que les politiques de lutte contre le chômage doivent impérativement conjuguer l'investissement dans la formation avec des stratégies de soutien à la croissance économique régionale pour répondre efficacement aux fractures territoriales observées en France.
